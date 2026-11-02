@@ -1,6 +1,8 @@
 package com.kdevs.livo.ui
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,6 +32,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -40,11 +45,18 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.kdevs.livo.data.Channel
-import com.kdevs.livo.data.countryName
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-@OptIn(UnstableApi::class)
+private fun Context.findActivity(): Activity? {
+    var c = this
+    while (c is ContextWrapper) {
+        if (c is Activity) return c
+        c = c.baseContext
+    }
+    return null
+}
+
 @Composable
 fun PlayerScreen(
     channel: Channel, isFav: Boolean,
@@ -60,8 +72,13 @@ fun PlayerScreen(
     var overlay by remember { mutableStateOf(true) }
     var tick by remember { mutableIntStateOf(0) }
     val root = remember { FocusRequester() }
+    val nextFocus = remember { FocusRequester() }
+    // true while the on-screen controls are being driven with the D-pad / remote
+    var navMode by remember { mutableStateOf(false) }
 
     BackHandler(onBack = onBack)
+    // First Back press closes the controls; the next one leaves the player.
+    BackHandler(enabled = navMode) { navMode = false; overlay = false }
 
     // Full-screen: hide system bars while watching.
     DisposableEffect(Unit) {
@@ -87,13 +104,47 @@ fun PlayerScreen(
         onDispose { exo.removeListener(listener); exo.release() }
     }
 
+    // Stop playback whenever the app leaves the foreground (Home, screen off, another app),
+    // and restart at the live edge when the user comes back.
+    DisposableEffect(exo) {
+        val owner = ctx.findActivity() as? LifecycleOwner
+        var stopped = false
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    stopped = true
+                    exo.playWhenReady = false
+                    exo.stop()
+                }
+                Lifecycle.Event.ON_START -> if (stopped) {
+                    stopped = false
+                    error = false; buffering = true
+                    exo.seekToDefaultPosition()
+                    exo.prepare()
+                    exo.playWhenReady = true
+                }
+                else -> Unit
+            }
+        }
+        owner?.lifecycle?.addObserver(observer)
+        onDispose { owner?.lifecycle?.removeObserver(observer) }
+    }
+
     LaunchedEffect(channel.url) {
         error = false; buffering = true; audio = emptyList(); overlay = true
         exo.setMediaItem(MediaItem.fromUri(channel.url))
         exo.prepare(); exo.playWhenReady = true
     }
     LaunchedEffect(overlay, tick, error) { if (overlay && !error) { delay(4000); overlay = false } }
-    LaunchedEffect(overlay) { runCatching { root.requestFocus() } }
+    LaunchedEffect(overlay) { if (!overlay) navMode = false }
+    LaunchedEffect(navMode) {
+        if (navMode) { delay(60); runCatching { nextFocus.requestFocus() } }
+        else runCatching { root.requestFocus() }
+    }
+    // The audio button can appear/disappear when a channel's tracks load; keep focus on a live button.
+    LaunchedEffect(audio.size) {
+        if (navMode) { delay(60); runCatching { nextFocus.requestFocus() } }
+    }
 
     fun cycleAudio() {
         if (audio.size < 2) return
@@ -113,12 +164,21 @@ fun PlayerScreen(
             .focusRequester(root)
             .onPreviewKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) false
-                else when (e.key) {
-                    Key.ChannelUp, Key.DirectionUp -> { onNext(); true }
-                    Key.ChannelDown, Key.DirectionDown -> { onPrev(); true }
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.DirectionLeft, Key.DirectionRight ->
-                        if (!overlay) { overlay = true; tick++; true } else { tick++; false }
-                    else -> false
+                else {
+                    if (overlay) tick++ // keep the controls on screen while the user is navigating
+                    when (e.key) {
+                        // CH+/CH- always switch channel.
+                        Key.ChannelUp -> { onNext(); true }
+                        Key.ChannelDown -> { onPrev(); true }
+                        // Up/Down switch channel only while the controls are closed;
+                        // with the controls open they move focus between the buttons.
+                        Key.DirectionUp -> if (navMode) false else { onNext(); true }
+                        Key.DirectionDown -> if (navMode) false else { onPrev(); true }
+                        // OK / Left / Right open the controls; once open, the focused button handles them.
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.DirectionLeft, Key.DirectionRight ->
+                            if (!navMode) { navMode = true; overlay = true; tick++; true } else false
+                        else -> false
+                    }
                 }
             }
             .focusable()
@@ -151,7 +211,11 @@ fun PlayerScreen(
                             Text("LIVE", color = LivoColors.Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                         Text(channel.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        Text("${channel.category} · ${countryName(channel.countries.first())}", color = Color(0xFFCFD6D7), fontSize = 12.sp)
+                        Text(
+                            "${channel.category} · ${channel.languages.joinToString(", ").ifBlank { "Other" }}",
+                            color = Color(0xFFCFD6D7),
+                            fontSize = 12.sp
+                        )
                     }
                     FavButton(isFav, { onFav(); tick++ })
                 }
@@ -162,7 +226,7 @@ fun PlayerScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 ) {
                     PillButton("Previous", Icons.Rounded.SkipPrevious, false, { onPrev(); tick++ })
-                    PillButton("Next", Icons.Rounded.SkipNext, true, { onNext(); tick++ })
+                    PillButton("Next", Icons.Rounded.SkipNext, true, { onNext(); tick++ }, Modifier.focusRequester(nextFocus))
                     if (audio.size > 1) PillButton(audioLabel, Icons.Rounded.Translate, false, { cycleAudio() })
                 }
             }

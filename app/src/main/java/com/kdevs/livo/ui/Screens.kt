@@ -42,7 +42,6 @@ import com.kdevs.livo.data.Channel
 import kotlinx.coroutines.delay
 
 enum class Tab(val label: String, val icon: ImageVector) {
-    Home("Home", Icons.Rounded.Home),
     Live("Live", Icons.Rounded.LiveTv),
     Favorites("Favorites", Icons.Rounded.Favorite),
     Search("Search", Icons.Rounded.Search),
@@ -62,7 +61,7 @@ fun LivoApp(vm: LivoViewModel) {
     val ctx = LocalContext.current
     val wide = LocalConfiguration.current.screenWidthDp >= 600
     val tv = remember { isTv(ctx) }
-    var tab by rememberSaveable { mutableStateOf(Tab.Home) }
+    var tab by rememberSaveable { mutableStateOf(Tab.Live) }
     val grids = Tab.entries.associateWith { rememberLazyGridState() }
 
     val playing = s.playing
@@ -171,7 +170,7 @@ private fun cellMin(wide: Boolean, tv: Boolean): Dp = if (tv) 200.dp else if (wi
 private fun ChannelPage(mode: Tab, s: UiState, vm: LivoViewModel, wide: Boolean, tv: Boolean, state: LazyGridState) {
     val compact = !wide
     val pad = if (compact) 16.dp else 28.dp
-    val title = when (mode) { Tab.Home -> "Welcome back"; Tab.Live -> "Live channels"; else -> "Favorites" }
+    val title = when (mode) {Tab.Live -> "Live channels"; else -> "Favorites" }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(cellMin(wide, tv)), state = state,
         contentPadding = PaddingValues(horizontal = pad, vertical = 20.dp),
@@ -200,14 +199,14 @@ private fun ChannelPage(mode: Tab, s: UiState, vm: LivoViewModel, wide: Boolean,
             return@LazyVerticalGrid
         }
 
-        if (mode == Tab.Home) {
+        if (mode == Tab.Live) {
             item(span = FullSpan) {
                 val featured = s.favorites.firstOrNull() ?: s.visible.firstOrNull()
                 HeroBanner(featured, compact) { featured?.let { vm.play(it, s.visible) } }
             }
         }
         if (mode != Tab.Favorites) {
-            item(span = FullSpan) { FilterBar(s.filters, s.countries, s.languages, s.categories, compact) { vm.setFilters(it) } }
+            item(span = FullSpan) { FilterBar(s.filters, s.languages, s.categories, compact) { vm.setFilters(it) } }
         }
 
         if (mode == Tab.Favorites) {
@@ -218,7 +217,7 @@ private fun ChannelPage(mode: Tab, s: UiState, vm: LivoViewModel, wide: Boolean,
             }
             items(s.favorites, key = { "f_" + it.id }) { c -> ChannelCard(c, true, { vm.play(c, s.favorites) }, { vm.toggleFav(c) }) }
         } else {
-            if (mode == Tab.Home && s.favorites.isNotEmpty()) {
+            if (mode == Tab.Live && s.favorites.isNotEmpty()) {
                 item(span = FullSpan) { SectionTitle("Your favorites", "${s.favorites.size} channels") }
                 items(s.favorites, key = { "h_" + it.id }) { c -> ChannelCard(c, true, { vm.play(c, s.favorites) }, { vm.toggleFav(c) }) }
             }

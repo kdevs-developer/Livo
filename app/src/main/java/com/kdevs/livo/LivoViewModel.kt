@@ -6,7 +6,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kdevs.livo.data.Channel
 import com.kdevs.livo.data.PlaylistRepository
-import com.kdevs.livo.data.countryName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -19,9 +18,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
-const val DEFAULT_URL = "https://iptv-org.github.io/iptv/index.m3u"
+const val DEFAULT_URL = "https://iptv-org.github.io/iptv/countries/in.m3u"
 
-data class Filters(val country: String? = null, val language: String? = null, val category: String? = null)
+data class Filters(val language: String? = null, val category: String? = null)
 
 data class UiState(
     val loading: Boolean = true,
@@ -30,7 +29,6 @@ data class UiState(
     val online: List<Channel> = emptyList(),
     val visible: List<Channel> = emptyList(),
     val favorites: List<Channel> = emptyList(),
-    val countries: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
     val categories: List<String> = emptyList(),
     val filters: Filters = Filters(),
@@ -46,9 +44,8 @@ data class UiState(
 )
 
 fun Channel.matches(f: Filters): Boolean =
-    (f.country == null || f.country in countries) &&
-        (f.language == null || f.language in languages) &&
-        (f.category == null || f.category == category)
+    (f.language == null || f.language in languages) &&
+            (f.category == null || f.category == category)
 
 class LivoViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = PlaylistRepository(app)
@@ -61,6 +58,10 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
         UiState(
             playlistUrl = prefs.getString("url", DEFAULT_URL) ?: DEFAULT_URL,
             favIds = (prefs.getStringSet("fav", emptySet()) ?: emptySet()).toSet(),
+            filters = Filters(
+                language = prefs.getString("filter_language", null),
+                category = prefs.getString("filter_category", null),
+            ),
             lastChecked = prefs.getLong("last", 0L),
         )
     )
@@ -83,15 +84,26 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun setChannels(list: List<Channel>) {
-        _state.update {
-            it.copy(
-                all = list,
-                countries = list.flatMap { c -> c.countries }.distinct().sortedBy { c -> countryName(c) },
-                languages = list.flatMap { c -> c.languages }.distinct().sorted(),
-                categories = list.map { c -> c.category }.distinct().sorted(),
-            )
+        val languages = list.flatMap { c -> c.languages }.distinct().sorted()
+        val categories = list.map { c -> c.category }.distinct().sorted()
+        _state.update { s ->
+            // A remembered filter that no longer exists in this playlist is ignored for now.
+            // The saved choice is kept, so it comes back when the option is available again.
+            var f = s.filters
+            if (list.isNotEmpty()) {
+                if (f.language != null && f.language !in languages) f = f.copy(language = null)
+                if (f.category != null && f.category !in categories) f = f.copy(category = null)
+            }
+            s.copy(all = list, languages = languages, categories = categories, filters = f)
         }
         recompute()
+    }
+
+    private fun saveFilters(f: Filters) {
+        prefs.edit()
+            .putString("filter_language", f.language)
+            .putString("filter_category", f.category)
+            .apply()
     }
 
     private fun recompute() {
@@ -106,7 +118,11 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setFilters(f: Filters) { _state.update { it.copy(filters = f) }; recompute() }
+    fun setFilters(f: Filters) {
+        saveFilters(f)
+        _state.update { it.copy(filters = f) }
+        recompute()
+    }
 
     fun toggleFav(c: Channel) {
         val next = _state.value.favIds.let { if (c.id in it) it - c.id else it + c.id }

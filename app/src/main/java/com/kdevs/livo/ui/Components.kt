@@ -31,7 +31,6 @@ import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import com.kdevs.livo.Filters
 import com.kdevs.livo.data.Channel
-import com.kdevs.livo.data.countryName
 
 /** Spring-scale + gold ring when focused (D-pad on TV, keyboard, or touch focus). */
 @Composable
@@ -148,8 +147,11 @@ fun ChannelCard(c: Channel, fav: Boolean, onClick: () -> Unit, onFav: () -> Unit
         Spacer(Modifier.height(8.dp))
         Text(c.name, color = LivoColors.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
-            "${c.category} · ${countryName(c.countries.first())}", color = LivoColors.Muted,
-            fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            "${c.category} · ${c.languages.joinToString(", ").ifBlank { "Other" }}",
+            color = LivoColors.Muted,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -181,7 +183,13 @@ fun HeroBanner(c: Channel?, compact: Boolean, onWatch: () -> Unit) {
                     Text("LIVE NOW", color = LivoColors.Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Text(c.name, color = Color.White, fontSize = if (compact) 20.sp else 26.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${c.category} · ${countryName(c.countries.first())}", color = Color(0xFFCFD6D7), fontSize = 12.sp)
+                Text(
+                    "${c.category} · ${c.languages.joinToString(", ").ifBlank { "Other" }}",
+                    color = LivoColors.Muted,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Spacer(Modifier.height(10.dp))
                 PillButton("Watch live", Icons.Rounded.PlayArrow, true, onWatch)
             }
@@ -232,15 +240,13 @@ private fun FilterSlot(
 }
 
 @Composable
-fun FilterBar(f: Filters, countries: List<String>, languages: List<String>, categories: List<String>, compact: Boolean, onChange: (Filters) -> Unit) {
+fun FilterBar(f: Filters, languages: List<String>, categories: List<String>, compact: Boolean, onChange: (Filters) -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     val none = listOf<Pair<String?, String>>(null to "All")
     Row(
         Modifier.fillMaxWidth().widthIn(max = 680.dp).clip(shape).background(Color(0x0AFFFFFF)).border(1.dp, LivoColors.Line, shape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FilterSlot(Icons.Rounded.Public, "Country", f.country, none + countries.map { it to countryName(it) }, !compact, { onChange(f.copy(country = it)) }, Modifier.weight(1f))
-        Box(Modifier.width(1.dp).height(28.dp).background(LivoColors.Line))
         FilterSlot(Icons.Rounded.Language, "Language", f.language, none + languages.map { it to it }, !compact, { onChange(f.copy(language = it)) }, Modifier.weight(1f))
         Box(Modifier.width(1.dp).height(28.dp).background(LivoColors.Line))
         FilterSlot(Icons.Rounded.Category, "Category", f.category, none + categories.map { it to it }, !compact, { onChange(f.copy(category = it)) }, Modifier.weight(1f))
