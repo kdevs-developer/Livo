@@ -5,20 +5,33 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.net.ConnectException
+import java.net.URI
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
+
+/** User-Agent used for downloads, availability checks and playback, unless a channel sets its own. */
+const val DEFAULT_USER_AGENT =
+    "Mozilla/5.0 (Linux; Android 13; Livo) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
+
+/** "https://host/path" -> "https://host", for the Origin header. */
+fun originOf(url: String): String? = runCatching {
+    val u = URI(url)
+    "${u.scheme}://${u.authority}"
+}.getOrNull()
 
 class PlaylistRepository(context: Context) {
     private val dir = context.filesDir
-    private val cache = File(dir, "playlist.m3u")
     private val downloader = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
     private val checker = OkHttpClient.Builder()
-        .connectTimeout(4, TimeUnit.SECONDS).readTimeout(4, TimeUnit.SECONDS)
-        .callTimeout(6, TimeUnit.SECONDS).build()
+        .connectTimeout(8, TimeUnit.SECONDS).readTimeout(8, TimeUnit.SECONDS)
+        .callTimeout(12, TimeUnit.SECONDS).build()
 
     /**
      * iptv-org's per-language playlists (ISO 639-3 codes). Used to tag channels
@@ -43,15 +56,18 @@ class PlaylistRepository(context: Context) {
     private val languageMaxAgeMs = TimeUnit.DAYS.toMillis(7)
 
     private fun download(url: String): String =
-        downloader.newCall(Request.Builder().url(url).build()).execute().use { r ->
+        downloader.newCall(
+            Request.Builder().url(url).header("User-Agent", DEFAULT_USER_AGENT).build()
+        ).execute().use { r ->
             if (!r.isSuccessful) error("Server returned ${r.code}")
             r.body!!.string()
         }
 
-    /** Downloads and parses the playlist; falls back to the last saved copy when offline. */
-    suspend fun load(url: String): List<Channel> = withContext(Dispatchers.IO) {
+    /** Downloads and parses a playlist; falls back to its last saved copy when offline. Each playlist has its own cache. */
+    suspend fun load(playlist: Playlist): List<Channel> = withContext(Dispatchers.IO) {
+        val cache = File(dir, "playlist_${playlist.id}.m3u")
         val text = try {
-            download(url).also { cache.writeText(it) }
+            download(playlist.url).also { cache.writeText(it) }
         } catch (e: Exception) {
             if (cache.exists()) cache.readText() else throw e
         }
@@ -92,17 +108,44 @@ class PlaylistRepository(context: Context) {
         }
     }
 
-    /** Quick reachability test for one stream. */
-    suspend fun isOnline(c: Channel): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val req = Request.Builder().url(c.url).header("User-Agent", "Mozilla/5.0 (Livo)").build()
-            checker.newCall(req).execute().use { r ->
-                if (!r.isSuccessful) false
-                else if (c.url.contains(".m3u8", ignoreCase = true)) r.peekBody(7).string().startsWith("#EXTM3U")
-                else true
+    /**
+     * Returns null when the channel should stay visible, or a short reason code when it is clearly dead.
+     * Only definite failures count. A 403, a timeout or a TLS hiccup is NOT enough to hide a channel,
+     * because many streams reject checkers but play fine in the player.
+     * Codes: not_found, server, invalid, host, conn.
+     */
+    suspend fun failureReason(c: Channel, retry: Boolean): String? = withContext(Dispatchers.IO) {
+        val first = probe(c)
+        if (first == null || !retry) return@withContext first
+        delay(1500)
+        probe(c)
+    }
+
+    private fun probe(c: Channel): String? {
+        val b = Request.Builder().url(c.url).header("User-Agent", c.userAgent ?: DEFAULT_USER_AGENT)
+        c.referrer?.let { ref ->
+            b.header("Referer", ref)
+            originOf(ref)?.let { b.header("Origin", it) }
+        }
+        return try {
+            checker.newCall(b.build()).execute().use { r ->
+                when {
+                    r.code == 404 || r.code == 410 -> "not_found"
+                    r.code in 500..599 -> "server"
+                    !r.isSuccessful -> null
+                    c.url.contains(".m3u8", ignoreCase = true) -> {
+                        val head = r.peekBody(512).string().trimStart('\uFEFF', ' ', '\n', '\r', '\t')
+                        if (head.isEmpty() || head.startsWith("#EXT")) null else "invalid"
+                    }
+                    else -> null
+                }
             }
+        } catch (e: UnknownHostException) {
+            "host"
+        } catch (e: ConnectException) {
+            "conn"
         } catch (e: Exception) {
-            false
+            null
         }
     }
 }

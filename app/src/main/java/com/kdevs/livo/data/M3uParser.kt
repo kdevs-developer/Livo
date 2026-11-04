@@ -5,22 +5,40 @@ object M3uParser {
     fun parse(text: String): List<Channel> {
         val out = ArrayList<Channel>()
         val seen = HashSet<String>()
+        val perUrl = HashMap<String, Int>()
         var info: String? = null
+        var referrer: String? = null
+        var agent: String? = null
         for (raw in text.lineSequence()) {
-            val line = raw.trim()
-            if (line.startsWith("#EXTINF")) {
-                info = line
-            } else if (line.isEmpty() || line.startsWith("#")) {
-                continue
-            } else if (info != null) {
-                build(info, line)?.let { if (seen.add(it.url)) out.add(it) }
-                info = null
+            val line = raw.trim().trimStart('\uFEFF')
+            when {
+                line.startsWith("#EXTINF") -> { info = line; referrer = null; agent = null }
+                line.startsWith("#EXTVLCOPT:", ignoreCase = true) -> {
+                    val opt = line.substringAfter(':')
+                    val key = opt.substringBefore('=').trim().lowercase()
+                    val value = opt.substringAfter('=', "").trim().ifBlank { null }
+                    when (key) {
+                        "http-referrer", "http-referer" -> referrer = value
+                        "http-user-agent" -> agent = value
+                    }
+                }
+                line.isEmpty() || line.startsWith("#") -> Unit
+                info != null -> {
+                    build(info, line, referrer, agent, out.size + 1, perUrl)?.let {
+                        // Same name AND same URL is a true duplicate. Same URL under a different name is kept.
+                        if (seen.add(it.name + "\u0000" + it.url)) out.add(it)
+                    }
+                    info = null; referrer = null; agent = null
+                }
             }
         }
         return out
     }
 
-    private fun build(info: String, url: String): Channel? {
+    private fun build(
+        info: String, url: String, referrer: String?, agent: String?, number: Int,
+        perUrl: HashMap<String, Int>,
+    ): Channel? {
         if (!url.startsWith("http", ignoreCase = true)) return null
 
         val a = attr.findAll(info)
@@ -52,17 +70,22 @@ object M3uParser {
                 if (it.isBlank() || it.equals("Undefined", true)) "Other" else it
             }
 
+        val count = perUrl.merge(url, 1) { old, add -> old + add } ?: 1
         return Channel(
+            id = if (count == 1) url else "$url#$count",
             url = url,
             name = name,
             logo = a["tvg-logo"]?.takeIf { it.startsWith("http") },
             category = category,
-            languages = languages
+            languages = languages,
+            number = number,
+            referrer = referrer,
+            userAgent = agent,
         )
     }
 
     private fun String?.splitList(): List<String> =
-        this.orEmpty().split(';', ',').map { it.trim() }.filter { it.isNotBlank() }
+        this.orEmpty().split(';', ',', '/', '|').map { it.trim() }.filter { it.isNotBlank() }
 
     private val indianLanguages = mapOf(
         "en" to "English",

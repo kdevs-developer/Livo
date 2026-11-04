@@ -1,4 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Launcher -->
     <color name="ic_launcher_background">#FFFFFF</color>
+
+    <!-- Surfaces and text -->
     <color name="livo_bg">#0A1114</color>
+    <color name="livo_bg2">#121C20</color>
+    <color name="livo_bg3">#16242A</color>
+    <color name="livo_header_top">#132A33</color>
+    <color name="livo_card_end">#0D1A20</color>
+    <color name="livo_ink">#EEE9DF</color>
+    <color name="livo_ink_soft">#CFD6D7</color>
+    <color name="livo_muted">#8B979B</color>
+    <color name="livo_white">#FFFFFF</color>
+    <color name="livo_line">#17EEE9DF</color>
+    <color name="livo_live">#FF5D5D</color>
+
+    <!-- Overlays and glass -->
+    <color name="livo_scrim">#CC000000</color>
+    <color name="livo_scrim_soft">#59000000</color>
+    <color name="livo_scrim_heavy">#A6000000</color>
+    <color name="livo_glass">#0AFFFFFF</color>
+    <color name="livo_glass_button">#33FFFFFF</color>
+    <color name="livo_rail">#2E000000</color>
+    <color name="livo_bar">#CC0D161A</color>
+
+    <!-- Hero banner gradient -->
+    <color name="livo_hero_1">#1E4150</color>
+    <color name="livo_hero_2">#2C2A45</color>
+    <color name="livo_hero_3">#41263A</color>
+
+    <!-- Accent colors (Settings > Interface > Accent color) -->
+    <color name="livo_gold">#E3B873</color>
+    <color name="livo_on_gold">#1A1408</color>
+    <color name="accent_teal">#5ED0C2</color>
+    <color name="accent_teal_on">#06201D</color>
+    <color name="accent_rose">#F08AA6</color>
+    <color name="accent_rose_on">#2A0A14</color>
+
+    <!-- Channel tile tints -->
+    <color name="tint_1">#2D6A8A</color>
+    <color name="tint_2">#7A3B5E</color>
+    <color name="tint_3">#2F7A5B</color>
+    <color name="tint_4">#A2581F</color>
+    <color name="tint_5">#5B4FA3</color>
+    <color name="tint_6">#9B3D3D</color>
+    <color name="tint_7">#3A5D8F</color>
+    <color name="tint_8">#4C7A2E</color>
 </resources>

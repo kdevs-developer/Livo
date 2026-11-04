@@ -1,3 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Livo</string>
+
+    <!-- Navigation -->
+    <string name="tab_live">Live</string>
+    <string name="tab_favorites">Favorites</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="all">All</string>
+    <string name="add">Add</string>
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="review">Review</string>
+    <string name="reset">Reset</string>
+    <string name="export">Export</string>
+    <string name="import_">Import</string>
+    <string name="language">Language</string>
+    <string name="category">Category</string>
+    <string name="audio">Audio</string>
+    <string name="live">LIVE</string>
+    <string name="live_now">LIVE NOW</string>
+    <string name="watch_live">Watch live</string>
+    <string name="cd_favorite">Favorite</string>
+
+    <!-- Channel list -->
+    <string name="live_channels">Live channels</string>
+    <string name="refresh">Refresh</string>
+    <string name="refresh_channels">Refresh channels</string>
+    <string name="checking_progress">Checking %1$d/%2$d</string>
+    <string name="offline_hidden_checked">%1$d offline hidden · %2$s</string>
+    <string name="not_checked_yet">not checked yet</string>
+    <string name="checked_ago">checked %1$s</string>
+    <string name="loading_channels">Loading channels…</string>
+    <string name="load_failed">Couldn\'t load your playlist</string>
+    <string name="try_again">Try again</string>
+    <string name="hero_empty">Add a playlist to start watching</string>
+    <string name="favorites_empty">No favorites yet. Tap the heart on any channel, or press and hold it, to add it here.</string>
+    <string name="your_favorites">Your favorites</string>
+    <string name="all_channels">All channels</string>
+    <string name="n_channels">%1$d channels</string>
+    <string name="n_online">%1$d online</string>
+    <string name="no_match">No online channels match these filters.</string>
+    <string name="clear_filters">Clear filters</string>
+    <string name="search_hint">Search channels</string>
+    <string name="search_min">Type at least two letters.</string>
+    <string name="search_none">No online channel found.</string>
+
+    <!-- Player -->
+    <string name="previous">Previous</string>
+    <string name="next">Next</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="player_error_title">This channel isn\'t available right now</string>
+    <string name="player_error_body">It\'s hidden from your list until you bring it back. Use Next to keep watching.</string>
+
+    <!-- Playlists -->
+    <string name="playlist_builtin_name">Livo India</string>
+    <string name="playlist_builtin_note">iptv-org · India · built-in</string>
+    <string name="playlist_legacy_name">My playlist</string>
+    <string name="playlist_default_name">Playlist %1$d</string>
+    <string name="built_in">Built-in</string>
+    <string name="add_playlist">Add playlist</string>
+    <string name="add_playlist_note">Saved as a new playlist. Livo India stays as it is.</string>
+    <string name="add_playlist_hint">Saved as a new playlist. Livo India stays as it is.</string>
+    <string name="playlist_name">Name</string>
+    <string name="playlist_link">M3U link</string>
+    <string name="playlist_link_hint">https://</string>
+    <string name="add_and_load">Add &amp; load</string>
+    <string name="playlist_summary">%1$d channels in playlist · %2$d online · %3$d hidden</string>
+
+    <!-- Hidden channels -->
+    <string name="hidden_title">Hidden channels</string>
+    <string name="hidden_hint">%1$d channels failed a check. Play one anyway, or bring it back.</string>
+    <string name="hidden_empty">Nothing is hidden right now.</string>
+    <string name="hidden_row_note">%1$d hidden · play or unhide any</string>
+    <string name="unhide">Unhide</string>
+    <string name="unhide_all">Unhide all</string>
+    <string name="recheck_all">Re-check all</string>
+    <string name="play_anyway">Play anyway</string>
+    <string name="why_not_found">Stream not found</string>
+    <string name="why_server">Server error</string>
+    <string name="why_invalid">Not a valid stream</string>
+    <string name="why_host">Host not found</string>
+    <string name="why_conn">Connection refused</string>
+    <string name="why_player">Failed to play</string>
+    <string name="why_unknown">Unavailable</string>
+
+    <!-- Settings -->
+    <string name="sec_playlists">Playlists</string>
+    <string name="sec_playback">Playback</string>
+    <string name="sec_channels">Channels</string>
+    <string name="sec_interface">Interface</string>
+    <string name="sec_data">Data</string>
+
+    <string name="set_resume">Resume last channel</string>
+    <string name="set_resume_note">Open straight into what you watched</string>
+    <string name="set_aspect">Default aspect ratio</string>
+    <string name="set_aspect_note">Fit, fill or zoom</string>
+    <string name="set_quality">Video quality</string>
+    <string name="set_quality_note">Auto, or cap it for slow networks</string>
+    <string name="set_buffer">Buffer size</string>
+    <string name="set_buffer_note">Higher means fewer stalls</string>
+    <string name="set_hide_offline">Hide offline channels</string>
+    <string name="set_hide_offline_note">Hidden ones are re-checked on refresh</string>
+    <string name="set_check_launch">Check favorites on launch</string>
+    <string name="set_check_launch_note">Quickly re-check your favorites at start</string>
+    <string name="set_numbers">Show channel numbers</string>
+    <string name="set_numbers_note">On the channel cards</string>
+    <string name="set_retry">Retry before hiding</string>
+    <string name="set_retry_note">Only hide after 2 failed tries</string>
+    <string name="set_card_size">Card size</string>
+    <string name="set_card_size_note">Compact, regular or large</string>
+    <string name="set_open_fav">Open on favorites</string>
+    <string name="set_open_fav_note">Skip Live on start</string>
+    <string name="set_accent">Accent color</string>
+    <string name="set_accent_note">Gold, teal or rose</string>
+    <string name="set_clear_hidden">Clear hidden list</string>
+    <string name="set_clear_hidden_note">Show all channels again</string>
+    <string name="set_backup">Backup favorites</string>
+    <string name="set_backup_note">Copy to or paste from the clipboard</string>
+    <string name="set_about">About Livo</string>
+    <string name="set_about_note">Version %1$s</string>
+    <string name="tip">Tip: press and hold a channel to add or remove it from favorites. Use Refresh on the Live screen to check whether hidden channels are back.</string>
+
+    <string name="aspect_fit">Fit</string>
+    <string name="aspect_fill">Fill</string>
+    <string name="aspect_zoom">Zoom</string>
+    <string name="quality_auto">Auto</string>
+    <string name="quality_1080">Max 1080p</string>
+    <string name="quality_720">Max 720p</string>
+    <string name="quality_480">Max 480p</string>
+    <string name="buffer_low">Low</string>
+    <string name="buffer_medium">Medium</string>
+    <string name="buffer_high">High</string>
+    <string name="card_compact">Compact</string>
+    <string name="card_regular">Regular</string>
+    <string name="card_large">Large</string>
+    <string name="accent_gold">Gold</string>
+    <string name="accent_teal">Teal</string>
+    <string name="accent_rose">Rose</string>
+
+    <!-- Messages -->
+    <string name="err_load">Could not load the playlist</string>
+    <string name="msg_loading">Loading playlist…</string>
+    <string name="msg_all_online">All checked channels are online</string>
+    <string name="msg_check_result">%1$d back online · %2$d hidden</string>
+    <string name="msg_invalid_url">Enter a valid link starting with http</string>
+    <string name="msg_playlist_added">Playlist added</string>
+    <string name="msg_unhidden">All channels are visible again</string>
+    <string name="msg_fav_exported">%1$d favorites copied to the clipboard</string>
+    <string name="msg_fav_imported">%1$d favorites imported</string>
+    <string name="msg_clipboard_empty">No channel links found on the clipboard</string>
 </resources>

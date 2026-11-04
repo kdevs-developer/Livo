@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kdevs.livo.ui.LivoApp
 import com.kdevs.livo.ui.LivoTheme
@@ -18,8 +20,9 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         setContent {
-            LivoTheme {
-                val vm: LivoViewModel = viewModel()
+            val vm: LivoViewModel = viewModel()
+            val state by vm.state.collectAsStateWithLifecycle()
+            LivoTheme(state.settings.accent) {
                 LivoApp(vm)
             }
         }

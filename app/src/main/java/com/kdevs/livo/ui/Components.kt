@@ -20,7 +20,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,7 +28,12 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import com.kdevs.livo.Filters
+import com.kdevs.livo.R
 import com.kdevs.livo.data.Channel
 
 /** Spring-scale + gold ring when focused (D-pad on TV, keyboard, or touch focus). */
@@ -53,8 +57,16 @@ fun Modifier.premiumFocus(
     }
 }
 
-private val tints = listOf(0xFF2D6A8A, 0xFF7A3B5E, 0xFF2F7A5B, 0xFFA2581F, 0xFF5B4FA3, 0xFF9B3D3D, 0xFF3A5D8F, 0xFF4C7A2E)
-private fun tint(name: String) = Color(tints[(name.hashCode() and 0x7fffffff) % tints.size])
+private val tintRes = listOf(
+    R.color.tint_1, R.color.tint_2, R.color.tint_3, R.color.tint_4,
+    R.color.tint_5, R.color.tint_6, R.color.tint_7, R.color.tint_8,
+)
+
+@Composable
+private fun tint(name: String): Color = colorResource(tintRes[(name.hashCode() and 0x7fffffff) % tintRes.size])
+
+/** "Category · Language, Language" */
+fun Channel.subtitle(): String = "$category · ${languages.joinToString(", ")}"
 private fun initials(name: String) =
     name.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
 
@@ -103,12 +115,12 @@ fun FavButton(fav: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) 
     )
     Box(
         modifier.size(32.dp).premiumFocus(CircleShape, src, 1.15f, showIdleBorder = false).clip(CircleShape)
-            .background(Color(0x59000000))
+            .background(LivoColors.ScrimSoft)
             .clickable(interactionSource = src, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Favorite",
+            if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, stringResource(R.string.cd_favorite),
             tint = if (fav) LivoColors.Gold else LivoColors.Ink,
             modifier = Modifier.size(18.dp).scale(pop),
         )
@@ -127,7 +139,7 @@ fun ChannelCard(c: Channel, fav: Boolean, onClick: () -> Unit, onFav: () -> Unit
     ) {
         Box(
             Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(11.dp))
-                .background(Brush.linearGradient(listOf(tint(c.name), Color(0xFF0D1A20)))),
+                .background(Brush.linearGradient(listOf(tint(c.name), LivoColors.CardEnd))),
             contentAlignment = Alignment.Center,
         ) {
             SubcomposeAsyncImage(
@@ -138,16 +150,24 @@ fun ChannelCard(c: Channel, fav: Boolean, onClick: () -> Unit, onFav: () -> Unit
                     SubcomposeAsyncImageContent()
                 } else {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(initials(c.name), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(initials(c.name), color = LivoColors.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
             FavButton(fav, onFav, Modifier.align(Alignment.TopEnd).padding(2.dp))
+            if (LocalSettings.current.showNumbers && c.number > 0) {
+                Text(
+                    c.number.toString(), color = LivoColors.Ink, fontSize = 10.sp,
+                    modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
+                        .clip(RoundedCornerShape(8.dp)).background(LivoColors.ScrimSoft)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(c.name, color = LivoColors.Ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
-            "${c.category} · ${c.languages.joinToString(", ").ifBlank { "Other" }}",
+            c.subtitle(),
             color = LivoColors.Muted,
             fontSize = 11.sp,
             maxLines = 1,
@@ -170,28 +190,28 @@ fun HeroBanner(c: Channel?, compact: Boolean, onWatch: () -> Unit) {
     val glow by t.animateFloat(0.15f, 0.4f, infiniteRepeatable(tween(3500, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "g")
     Box(
         Modifier.fillMaxWidth().height(if (compact) 150.dp else 200.dp).clip(RoundedCornerShape(20.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF1E4150), Color(0xFF2C2A45), Color(0xFF41263A)))),
+            .background(Brush.linearGradient(listOf(LivoColors.Hero1, LivoColors.Hero2, LivoColors.Hero3))),
     ) {
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, LivoColors.Gold.copy(alpha = glow)))))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xA6000000)))))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, LivoColors.ScrimHeavy))))
         Column(Modifier.align(Alignment.BottomStart).padding(if (compact) 16.dp else 24.dp)) {
             if (c == null) {
-                Text("Add a playlist to start watching", color = LivoColors.Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.hero_empty), color = LivoColors.Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LiveDot(); Spacer(Modifier.width(6.dp))
-                    Text("LIVE NOW", color = LivoColors.Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.live_now), color = LivoColors.Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Text(c.name, color = Color.White, fontSize = if (compact) 20.sp else 26.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(c.name, color = LivoColors.White, fontSize = if (compact) 20.sp else 26.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "${c.category} · ${c.languages.joinToString(", ").ifBlank { "Other" }}",
+                    c.subtitle(),
                     color = LivoColors.Muted,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(10.dp))
-                PillButton("Watch live", Icons.Rounded.PlayArrow, true, onWatch)
+                PillButton(stringResource(R.string.watch_live), Icons.Rounded.PlayArrow, true, onWatch)
             }
         }
     }
@@ -206,7 +226,7 @@ private fun FilterSlot(
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
     val rot by animateFloatAsState(if (open) 180f else 0f, label = "chev")
-    val value = options.firstOrNull { it.first == current }?.second ?: "All"
+    val value = options.firstOrNull { it.first == current }?.second ?: stringResource(R.string.all)
     Box(modifier) {
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
@@ -242,13 +262,33 @@ private fun FilterSlot(
 @Composable
 fun FilterBar(f: Filters, languages: List<String>, categories: List<String>, compact: Boolean, onChange: (Filters) -> Unit) {
     val shape = RoundedCornerShape(18.dp)
-    val none = listOf<Pair<String?, String>>(null to "All")
+    val none = listOf<Pair<String?, String>>(null to stringResource(R.string.all))
     Row(
-        Modifier.fillMaxWidth().widthIn(max = 680.dp).clip(shape).background(Color(0x0AFFFFFF)).border(1.dp, LivoColors.Line, shape),
+        Modifier.fillMaxWidth().widthIn(max = 680.dp).clip(shape).background(LivoColors.Glass).border(1.dp, LivoColors.Line, shape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FilterSlot(Icons.Rounded.Language, "Language", f.language, none + languages.map { it to it }, !compact, { onChange(f.copy(language = it)) }, Modifier.weight(1f))
+        FilterSlot(Icons.Rounded.Language, stringResource(R.string.language), f.language, none + languages.map { it to it }, !compact, { onChange(f.copy(language = it)) }, Modifier.weight(1f))
         Box(Modifier.width(1.dp).height(28.dp).background(LivoColors.Line))
-        FilterSlot(Icons.Rounded.Category, "Category", f.category, none + categories.map { it to it }, !compact, { onChange(f.copy(category = it)) }, Modifier.weight(1f))
+        FilterSlot(Icons.Rounded.Category, stringResource(R.string.category), f.category, none + categories.map { it to it }, !compact, { onChange(f.copy(category = it)) }, Modifier.weight(1f))
+    }
+}
+
+/** Round icon button used by the player controls. */
+@Composable
+fun RoundButton(
+    icon: ImageVector, description: String, onClick: () -> Unit,
+    modifier: Modifier = Modifier, size: Dp = 48.dp, primary: Boolean = false,
+) {
+    val src = remember { MutableInteractionSource() }
+    Box(
+        modifier.size(size).premiumFocus(CircleShape, src, 1.12f, showIdleBorder = false).clip(CircleShape)
+            .background(if (primary) LivoColors.Gold else LivoColors.GlassButton)
+            .clickable(interactionSource = src, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon, description, tint = if (primary) LivoColors.OnGold else LivoColors.White,
+            modifier = Modifier.size(size * 0.5f),
+        )
     }
 }
