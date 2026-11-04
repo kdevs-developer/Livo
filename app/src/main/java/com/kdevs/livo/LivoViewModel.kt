@@ -26,8 +26,14 @@ import org.json.JSONObject
 import java.util.UUID
 
 /** The original playlist. Hard-coded on purpose: it is always available and can't be removed. */
-const val DEFAULT_URL = "https://iptv-org.github.io/iptv/countries/in.m3u"
-const val BUILTIN_ID = "builtin"
+const val DEFAULT_URL = "https://iptv-org.github.io/iptv/countries/in.m3u"   // only used to migrate older saved links
+const val DEFAULT_ID = "lang:eng"   // first language list, same as LiveTV
+
+/** Same language playlists as LiveTV: https://iptv-org.github.io/iptv/languages/<code>.m3u */
+private val LANGUAGE_LISTS = listOf(
+    "eng" to "English", "tam" to "Tamil", "hin" to "Hindi", "tel" to "Telugu", "mal" to "Malayalam",
+    "kan" to "Kannada", "ben" to "Bengali", "mar" to "Marathi", "spa" to "Spanish", "ara" to "Arabic",
+)
 
 enum class Aspect { Fit, Fill, Zoom }
 enum class Quality { Auto, P1080, P720, P480 }
@@ -70,7 +76,7 @@ data class UiState(
     val toCheck: Int = 0,
     val lastChecked: Long = 0L,
     val playlists: List<Playlist> = emptyList(),
-    val activeId: String = BUILTIN_ID,
+    val activeId: String = DEFAULT_ID,
     val settings: AppSettings = AppSettings(),
     val playing: Channel? = null,
     val message: String? = null,
@@ -102,12 +108,15 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun str(@StringRes id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 
-    private val builtIn = Playlist(BUILTIN_ID, str(R.string.playlist_builtin_name), DEFAULT_URL, builtIn = true)
+    private val builtIns: List<Playlist> = LANGUAGE_LISTS.map { (code, label) ->
+        Playlist("lang:$code", label, "https://iptv-org.github.io/iptv/languages/$code.m3u", builtIn = true, language = label)
+    }
 
     private val _state = MutableStateFlow(
         UiState(
-            playlists = listOf(builtIn) + custom,
-            activeId = prefs.getString("active", BUILTIN_ID) ?: BUILTIN_ID,
+            playlists = builtIns + custom,
+            activeId = prefs.getString("active", null)
+                ?.takeIf { id -> (builtIns + custom).any { it.id == id } } ?: DEFAULT_ID,
             favIds = (prefs.getStringSet("fav", emptySet()) ?: emptySet()).toSet(),
             filters = Filters(
                 language = prefs.getString("filter_language", null),
@@ -157,7 +166,7 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(message = str(R.string.msg_invalid_url)) }
             return false
         }
-        val existing = (listOf(builtIn) + custom).firstOrNull { it.url == u }
+        val existing = (builtIns + custom).firstOrNull { it.url == u }
         if (existing != null) {
             selectPlaylist(existing.id)
             return true
@@ -165,7 +174,7 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
         val p = Playlist(UUID.randomUUID().toString().take(8), name.trim().ifBlank { str(R.string.playlist_default_name, custom.size + 1) }, u)
         custom.add(p)
         saveCustom()
-        _state.update { it.copy(playlists = listOf(builtIn) + custom, message = str(R.string.msg_playlist_added)) }
+        _state.update { it.copy(playlists = builtIns + custom, message = str(R.string.msg_playlist_added)) }
         selectPlaylist(p.id)
         return true
     }
@@ -180,11 +189,11 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deletePlaylist(id: String) {
-        if (id == BUILTIN_ID) return
+        if (builtIns.any { it.id == id }) return
         custom.removeAll { it.id == id }
         saveCustom()
-        _state.update { it.copy(playlists = listOf(builtIn) + custom) }
-        if (_state.value.activeId == id) selectPlaylist(BUILTIN_ID)
+        _state.update { it.copy(playlists = builtIns + custom) }
+        if (_state.value.activeId == id) selectPlaylist(DEFAULT_ID)
     }
 
     // ---------- loading ----------
@@ -243,9 +252,11 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { s ->
             val shown = if (s.settings.hideOffline) s.all.filter { it.id !in offline } else s.all
             val hidden = s.all.filter { it.id in offline }
+            // Language playlists are already one language, so the saved language filter is ignored there.
+            val f = if (s.active.language != null) s.filters.copy(language = null) else s.filters
             s.copy(
                 online = shown,
-                visible = shown.filter { it.matches(s.filters) },
+                visible = shown.filter { it.matches(f) },
                 favorites = shown.filter { it.id in s.favIds },
                 hidden = hidden,
                 hiddenWhy = reasons.toMap(),
@@ -422,6 +433,16 @@ class LivoViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun stop() { _state.update { it.copy(playing = null) } }
+
+    /** Switches to the channel with this number in the current playlist. Returns false when there isn't one. */
+    fun tuneNumber(n: Int): Boolean {
+        val s = _state.value
+        val c = s.all.firstOrNull { it.number == n } ?: return false
+        if (s.settings.hideOffline && c.id in offline) return false
+        prefs.edit().putString("last_channel", c.id).apply()
+        _state.update { it.copy(playing = c) }
+        return true
+    }
 
     fun step(delta: Int) {
         val s = _state.value

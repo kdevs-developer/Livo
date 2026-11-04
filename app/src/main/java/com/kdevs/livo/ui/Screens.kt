@@ -89,7 +89,7 @@ fun LivoApp(vm: LivoViewModel) {
         if (playing != null) {
             PlayerScreen(
                 channel = playing, isFav = playing.id in s.favIds, settings = s.settings,
-                onBack = vm::stop, onNext = { vm.step(1) }, onPrev = { vm.step(-1) },
+                onBack = vm::stop, onNext = { vm.step(1) }, onPrev = { vm.step(-1) }, onTune = vm::tuneNumber,
                 onFav = { vm.toggleFav(playing) },
                 onFailed = { vm.markOffline(playing) },
                 onPlaying = { vm.markOnline(playing) },
@@ -204,17 +204,6 @@ private fun cellMin(wide: Boolean, tv: Boolean): Dp {
 }
 
 @Composable
-private fun PlaylistChips(s: UiState, onSelect: (String) -> Unit, onAdd: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        s.playlists.forEach { p -> Chip(p.name, p.id == s.activeId, null) { onSelect(p.id) } }
-        Chip(stringResource(R.string.add), false, Icons.Rounded.Add, onAdd)
-    }
-}
-
-@Composable
 private fun Chip(text: String, selected: Boolean, icon: ImageVector?, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(50)
@@ -246,9 +235,6 @@ private fun ChannelPage(mode: Tab, s: UiState, vm: LivoViewModel, wide: Boolean,
         modifier = Modifier.fillMaxSize(),
     ) {
         item(span = FullSpan) { Header(title, s, compact) { vm.refresh() } }
-        if (mode == Tab.Live) {
-            item(span = FullSpan) { PlaylistChips(s, { vm.selectPlaylist(it) }, onAddPlaylist) }
-        }
 
         if (s.loading && s.all.isEmpty()) {
             item(span = FullSpan) {
@@ -277,7 +263,11 @@ private fun ChannelPage(mode: Tab, s: UiState, vm: LivoViewModel, wide: Boolean,
             }
         }
         if (mode != Tab.Favorites) {
-            item(span = FullSpan) { FilterBar(s.filters, s.languages, s.categories, compact) { vm.setFilters(it) } }
+            item(span = FullSpan) { FilterBar(
+                s.filters, s.languages, s.categories, s.playlists, s.activeId, compact,
+                showLanguage = s.active.language == null,
+                onPlaylist = { vm.selectPlaylist(it) }, onAddPlaylist = onAddPlaylist,
+            ) { vm.setFilters(it) } }
         }
 
         if (mode == Tab.Favorites) {
@@ -512,7 +502,8 @@ private fun SettingsPage(s: UiState, vm: LivoViewModel, wide: Boolean, onOpenHid
 
         SectionLabel(stringResource(R.string.sec_playlists))
         Group {
-            s.playlists.forEach { p -> PlaylistRow(p, p.id == s.activeId, { vm.selectPlaylist(p.id) }, { vm.deletePlaylist(p.id) }) }
+            // Built-in language lists live inside the app (top chips); Settings only lists the user's own links.
+            s.playlists.filter { it.language == null }.forEach { p -> PlaylistRow(p, p.id == s.activeId, { vm.selectPlaylist(p.id) }, { vm.deletePlaylist(p.id) }) }
             SettingRow(Icons.Rounded.Add, stringResource(R.string.add_playlist), stringResource(R.string.add_playlist_note), onAddPlaylist)
         }
 

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.Dp
 import com.kdevs.livo.Filters
 import com.kdevs.livo.R
 import com.kdevs.livo.data.Channel
+import com.kdevs.livo.data.Playlist
 
 /** Spring-scale + gold ring when focused (D-pad on TV, keyboard, or touch focus). */
 @Composable
@@ -259,16 +260,34 @@ private fun FilterSlot(
     }
 }
 
+private const val ADD_PLAYLIST_KEY = "__add_playlist__"
+
+/** Playlist | (Language) | Category, side by side. Language only appears on your own playlists. */
 @Composable
-fun FilterBar(f: Filters, languages: List<String>, categories: List<String>, compact: Boolean, onChange: (Filters) -> Unit) {
+fun FilterBar(
+    f: Filters, languages: List<String>, categories: List<String>,
+    playlists: List<Playlist>, activeId: String, compact: Boolean, showLanguage: Boolean = true,
+    onPlaylist: (String) -> Unit, onAddPlaylist: () -> Unit, onChange: (Filters) -> Unit,
+) {
     val shape = RoundedCornerShape(18.dp)
     val none = listOf<Pair<String?, String>>(null to stringResource(R.string.all))
+    val addLabel = stringResource(R.string.add_playlist)
+    val playlistOptions = playlists.map<Playlist, Pair<String?, String>> { it.id to it.name } + (ADD_PLAYLIST_KEY to "+ $addLabel")
+    val divider = @Composable { Box(Modifier.width(1.dp).height(28.dp).background(LivoColors.Line)) }
     Row(
         Modifier.fillMaxWidth().widthIn(max = 680.dp).clip(shape).background(LivoColors.Glass).border(1.dp, LivoColors.Line, shape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FilterSlot(Icons.Rounded.Language, stringResource(R.string.language), f.language, none + languages.map { it to it }, !compact, { onChange(f.copy(language = it)) }, Modifier.weight(1f))
-        Box(Modifier.width(1.dp).height(28.dp).background(LivoColors.Line))
+        FilterSlot(
+            Icons.Rounded.PlaylistPlay, stringResource(R.string.filter_playlist), activeId, playlistOptions, !compact,
+            { key -> if (key == ADD_PLAYLIST_KEY) onAddPlaylist() else if (key != null) onPlaylist(key) },
+            Modifier.weight(1f),
+        )
+        divider()
+        if (showLanguage) {
+            FilterSlot(Icons.Rounded.Language, stringResource(R.string.language), f.language, none + languages.map { it to it }, !compact, { onChange(f.copy(language = it)) }, Modifier.weight(1f))
+            divider()
+        }
         FilterSlot(Icons.Rounded.Category, stringResource(R.string.category), f.category, none + categories.map { it to it }, !compact, { onChange(f.copy(category = it)) }, Modifier.weight(1f))
     }
 }

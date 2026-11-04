@@ -21,4 +21,6 @@ data class Playlist(
     val name: String,
     val url: String,
     val builtIn: Boolean = false,
+    /** Set for iptv-org language playlists: every channel in the list is tagged with this language. */
+    val language: String? = null,
 )

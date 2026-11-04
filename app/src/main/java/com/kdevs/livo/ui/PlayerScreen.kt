@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -73,7 +74,7 @@ private fun Context.findActivity(): Activity? {
 @Composable
 fun PlayerScreen(
     channel: Channel, isFav: Boolean, settings: AppSettings,
-    onBack: () -> Unit, onNext: () -> Unit, onPrev: () -> Unit, onFav: () -> Unit,
+    onBack: () -> Unit, onNext: () -> Unit, onPrev: () -> Unit, onTune: (Int) -> Boolean, onFav: () -> Unit,
     onFailed: () -> Unit, onPlaying: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -81,6 +82,22 @@ fun PlayerScreen(
     val failed by rememberUpdatedState(onFailed)
     val played by rememberUpdatedState(onPlaying)
     val retryFirst by rememberUpdatedState(settings.retryBeforeHiding)
+    val tune by rememberUpdatedState(onTune)
+
+    // Number keys: type a channel number, it opens after a short pause (or press OK to go right away).
+    var typed by remember { mutableStateOf("") }
+    var toast by remember { mutableStateOf<String?>(null) }
+    fun commitTyped() {
+        val n = typed.toIntOrNull()
+        typed = ""
+        if (n != null && n > 0 && !tune(n)) toast = "No channel $n"
+    }
+    LaunchedEffect(typed) {
+        if (typed.isNotEmpty()) { delay(1800); commitTyped() }
+    }
+    LaunchedEffect(toast) {
+        if (toast != null) { delay(1500); toast = null }
+    }
     val http = remember {
         DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
@@ -238,6 +255,16 @@ fun PlayerScreen(
                 if (e.type != KeyEventType.KeyDown) false
                 else {
                     if (overlay) tick++ // keep the controls on screen while the user is navigating
+                    val digit = digitOf(e.key)
+                    if (digit != null) {
+                        if (typed.length < 4) typed += digit
+                        toast = null
+                        return@onPreviewKeyEvent true
+                    }
+                    if (typed.isNotEmpty() && (e.key == Key.Enter || e.key == Key.NumPadEnter || e.key == Key.DirectionCenter)) {
+                        commitTyped()
+                        return@onPreviewKeyEvent true
+                    }
                     when (e.key) {
                         // CH+/CH- always switch channel.
                         Key.ChannelUp -> { onNext(); true }
@@ -267,6 +294,14 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize(),
         )
         if (buffering && !error) CircularProgressIndicator(Modifier.align(Alignment.Center), color = LivoColors.Gold)
+        (typed.ifEmpty { toast })?.let { shown ->
+            Text(
+                shown, color = LivoColors.Gold, fontSize = 32.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopEnd).padding(24.dp)
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+            )
+        }
         if (error) {
             Column(
                 Modifier.align(Alignment.Center).padding(horizontal = 24.dp).padding(bottom = 200.dp),
@@ -317,4 +352,18 @@ fun PlayerScreen(
             }
         }
     }
+}
+
+private fun digitOf(k: Key): Char? = when (k) {
+    Key.Zero, Key.NumPad0 -> '0'
+    Key.One, Key.NumPad1 -> '1'
+    Key.Two, Key.NumPad2 -> '2'
+    Key.Three, Key.NumPad3 -> '3'
+    Key.Four, Key.NumPad4 -> '4'
+    Key.Five, Key.NumPad5 -> '5'
+    Key.Six, Key.NumPad6 -> '6'
+    Key.Seven, Key.NumPad7 -> '7'
+    Key.Eight, Key.NumPad8 -> '8'
+    Key.Nine, Key.NumPad9 -> '9'
+    else -> null
 }

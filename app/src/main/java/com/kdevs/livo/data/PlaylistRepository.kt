@@ -65,13 +65,20 @@ class PlaylistRepository(context: Context) {
 
     /** Downloads and parses a playlist; falls back to its last saved copy when offline. Each playlist has its own cache. */
     suspend fun load(playlist: Playlist): List<Channel> = withContext(Dispatchers.IO) {
-        val cache = File(dir, "playlist_${playlist.id}.m3u")
+        val cache = File(dir, "playlist_${playlist.id.replace(Regex("[^A-Za-z0-9_-]"), "_")}.m3u")
         val text = try {
             download(playlist.url).also { cache.writeText(it) }
         } catch (e: Exception) {
             if (cache.exists()) cache.readText() else throw e
         }
         val channels = M3uParser.parse(text)
+
+        // A language playlist (like LiveTV's): every channel in it is in that language.
+        playlist.language?.let { lang ->
+            return@withContext channels.map { c ->
+                c.copy(languages = (listOf(lang) + c.languages.filter { it != "Other" }).distinct())
+            }
+        }
 
         // The playlist already carries language tags: nothing more to do.
         if (channels.any { it.languages != listOf("Other") }) return@withContext channels

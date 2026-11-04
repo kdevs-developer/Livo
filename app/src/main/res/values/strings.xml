@@ -19,6 +19,7 @@
     <string name="export">Export</string>
     <string name="import_">Import</string>
     <string name="language">Language</string>
+    <string name="filter_playlist">Playlist</string>
     <string name="category">Category</string>
     <string name="audio">Audio</string>
     <string name="live">LIVE</string>
@@ -58,14 +59,13 @@
     <string name="player_error_body">It\'s hidden from your list until you bring it back. Use Next to keep watching.</string>
 
     <!-- Playlists -->
-    <string name="playlist_builtin_name">Livo India</string>
-    <string name="playlist_builtin_note">iptv-org · India · built-in</string>
+    <string name="playlist_builtin_note">iptv-org · built-in</string>
     <string name="playlist_legacy_name">My playlist</string>
     <string name="playlist_default_name">Playlist %1$d</string>
     <string name="built_in">Built-in</string>
     <string name="add_playlist">Add playlist</string>
-    <string name="add_playlist_note">Saved as a new playlist. Livo India stays as it is.</string>
-    <string name="add_playlist_hint">Saved as a new playlist. Livo India stays as it is.</string>
+    <string name="add_playlist_note">Saved as a new playlist. The built-in language lists stay as they are.</string>
+    <string name="add_playlist_hint">Saved as a new playlist. The built-in language lists stay as they are.</string>
     <string name="playlist_name">Name</string>
     <string name="playlist_link">M3U link</string>
     <string name="playlist_link_hint">https://</string>
