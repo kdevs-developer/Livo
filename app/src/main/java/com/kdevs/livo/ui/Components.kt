@@ -1,10 +1,14 @@
 package com.kdevs.livo.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,6 +18,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
@@ -25,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
@@ -218,77 +228,141 @@ fun HeroBanner(c: Channel?, compact: Boolean, onWatch: () -> Unit) {
     }
 }
 
+/** Tappable card that shows the current choice and opens a picker dialog. Focus = solid gold fill. */
 @Composable
-private fun FilterSlot(
-    icon: ImageVector, label: String, current: String?, options: List<Pair<String?, String>>,
-    showIcon: Boolean, onSelect: (String?) -> Unit, modifier: Modifier = Modifier,
+private fun PickerButton(
+    icon: ImageVector, label: String, value: String, active: Boolean,
+    onClick: () -> Unit, modifier: Modifier = Modifier,
 ) {
-    var open by remember { mutableStateOf(false) }
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
-    val rot by animateFloatAsState(if (open) 180f else 0f, label = "chev")
-    val value = options.firstOrNull { it.first == current }?.second ?: stringResource(R.string.all)
-    Box(modifier) {
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                .background(if (focused) LivoColors.Gold.copy(alpha = 0.16f) else Color.Transparent)
-                .clickable(interactionSource = src, indication = null) { open = true }
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (showIcon) {
-                Icon(icon, null, tint = LivoColors.Gold, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(10.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(label, color = LivoColors.Muted, fontSize = 10.sp, maxLines = 1)
-                Text(
-                    value, color = if (current != null) LivoColors.Gold else LivoColors.Ink, fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Icon(Icons.Rounded.ExpandMore, null, tint = LivoColors.Muted, modifier = Modifier.size(18.dp).rotate(rot))
+    val shape = RoundedCornerShape(16.dp)
+    val bg by animateColorAsState(if (focused) LivoColors.Gold else LivoColors.Glass, label = "pkBg")
+    val main = if (focused) LivoColors.OnGold else if (active) LivoColors.Gold else LivoColors.Ink
+    val sub = if (focused) LivoColors.OnGold.copy(alpha = 0.7f) else LivoColors.Muted
+    Row(
+        modifier.clip(shape).background(bg)
+            .border(1.dp, if (focused) LivoColors.Gold else LivoColors.Line, shape)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(32.dp).clip(RoundedCornerShape(10.dp))
+                .background(if (focused) LivoColors.OnGold.copy(alpha = 0.12f) else LivoColors.Gold.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = if (focused) LivoColors.OnGold else LivoColors.Gold, modifier = Modifier.size(18.dp)) }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, color = sub, fontSize = 10.sp, maxLines = 1)
+            Text(value, color = main, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = LivoColors.Bg3) {
-            options.forEach { (key, text) ->
-                DropdownMenuItem(
-                    text = { Text(text, color = if (key == current) LivoColors.Gold else LivoColors.Ink) },
-                    onClick = { open = false; onSelect(key) },
-                )
+        Icon(Icons.Rounded.UnfoldMore, null, tint = sub, modifier = Modifier.size(18.dp))
+    }
+}
+
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun PickerRow(text: String, selected: Boolean, focusOnOpen: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val focused by src.collectIsFocusedAsState()
+    val fr = remember { FocusRequester() }
+    val shape = RoundedCornerShape(14.dp)
+    val bg by animateColorAsState(
+        when { focused -> LivoColors.Gold; selected -> LivoColors.Gold.copy(alpha = 0.14f); else -> LivoColors.Glass },
+        label = "rowBg",
+    )
+    val fg by animateColorAsState(
+        when { focused -> LivoColors.OnGold; selected -> LivoColors.Gold; else -> LivoColors.Ink },
+        label = "rowFg",
+    )
+    val keyboard = LocalInputModeManager.current.inputMode == InputMode.Keyboard
+    if (focusOnOpen && keyboard) LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+    Row(
+        Modifier.fillMaxWidth().then(if (focusOnOpen && keyboard) Modifier.focusRequester(fr) else Modifier)
+            .clip(shape).background(bg)
+            .border(1.dp, if (focused || selected) LivoColors.Gold else LivoColors.Line, shape)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text, color = fg, fontSize = 14.sp, fontWeight = if (selected || focused) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+        )
+        if (selected) Icon(Icons.Rounded.CheckCircle, null, tint = fg, modifier = Modifier.size(20.dp))
+    }
+}
+
+/** List picker dialog. Opens scrolled to, and focused on, the last selected option. */
+@Composable
+private fun PickerDialog(
+    title: String, icon: ImageVector, options: List<Pair<String?, String>>, current: String?,
+    onSelect: (String?) -> Unit, onDismiss: () -> Unit, footer: (@Composable () -> Unit)? = null,
+) {
+    val shape = RoundedCornerShape(24.dp)
+    val selectedIndex = options.indexOfFirst { it.first == current }.coerceAtLeast(0)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0))
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            Modifier.fillMaxWidth(0.92f).widthIn(max = 460.dp).heightIn(max = 520.dp)
+                .clip(shape).background(LivoColors.Bg2).border(1.dp, LivoColors.Line, shape).padding(vertical = 16.dp),
+        ) {
+            Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, tint = LivoColors.Gold, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(title, color = LivoColors.Ink, fontSize = 18.sp, fontWeight = FontWeight.Light, modifier = Modifier.weight(1f))
+                Text("${options.size}", color = LivoColors.Muted, fontSize = 12.sp)
             }
+            LazyColumn(
+                Modifier.weight(1f, fill = false), state = listState,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                itemsIndexed(options, key = { _, o -> o.first ?: "__all__" }) { i, (key, text) ->
+                    PickerRow(text, key == current, focusOnOpen = i == selectedIndex) { onSelect(key) }
+                }
+            }
+            if (footer != null) Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { footer() }
         }
     }
 }
 
-private const val ADD_PLAYLIST_KEY = "__add_playlist__"
-
-/** Playlist | (Language) | Category, side by side. Language only appears on your own playlists. */
+/** Playlist and Category pickers. Each dialog opens on the last selected option. */
 @Composable
 fun FilterBar(
-    f: Filters, languages: List<String>, categories: List<String>,
-    playlists: List<Playlist>, activeId: String, compact: Boolean, showLanguage: Boolean = true,
+    f: Filters, @Suppress("UNUSED_PARAMETER") languages: List<String>, categories: List<String>,
+    playlists: List<Playlist>, activeId: String, compact: Boolean, @Suppress("UNUSED_PARAMETER") showLanguage: Boolean = true,
     onPlaylist: (String) -> Unit, onAddPlaylist: () -> Unit, onChange: (Filters) -> Unit,
 ) {
-    val shape = RoundedCornerShape(18.dp)
-    val none = listOf<Pair<String?, String>>(null to stringResource(R.string.all))
-    val addLabel = stringResource(R.string.add_playlist)
-    val playlistOptions = playlists.map<Playlist, Pair<String?, String>> { it.id to it.name } + (ADD_PLAYLIST_KEY to "+ $addLabel")
-    val divider = @Composable { Box(Modifier.width(1.dp).height(28.dp).background(LivoColors.Line)) }
-    Row(
-        Modifier.fillMaxWidth().widthIn(max = 680.dp).clip(shape).background(LivoColors.Glass).border(1.dp, LivoColors.Line, shape),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        FilterSlot(
-            Icons.Rounded.PlaylistPlay, stringResource(R.string.filter_playlist), activeId, playlistOptions, !compact,
-            { key -> if (key == ADD_PLAYLIST_KEY) onAddPlaylist() else if (key != null) onPlaylist(key) },
-            Modifier.weight(1f),
+    val all = stringResource(R.string.all)
+    var picker by remember { mutableStateOf<String?>(null) } // "playlist" | "category"
+    val playlistName = playlists.firstOrNull { it.id == activeId }?.name ?: all
+
+    Row(Modifier.fillMaxWidth().widthIn(max = 560.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        PickerButton(
+            Icons.Rounded.PlaylistPlay, stringResource(R.string.filter_playlist), playlistName, false,
+            { picker = "playlist" }, Modifier.weight(1f),
         )
-        divider()
-        if (showLanguage) {
-            FilterSlot(Icons.Rounded.Language, stringResource(R.string.language), f.language, none + languages.map { it to it }, !compact, { onChange(f.copy(language = it)) }, Modifier.weight(1f))
-            divider()
-        }
-        FilterSlot(Icons.Rounded.Category, stringResource(R.string.category), f.category, none + categories.map { it to it }, !compact, { onChange(f.copy(category = it)) }, Modifier.weight(1f))
+        PickerButton(
+            Icons.Rounded.GridView, stringResource(R.string.category), f.category ?: all, f.category != null,
+            { picker = "category" }, Modifier.weight(1f),
+        )
+    }
+
+    when (picker) {
+        "playlist" -> PickerDialog(
+            stringResource(R.string.filter_playlist), Icons.Rounded.PlaylistPlay,
+            playlists.map<Playlist, Pair<String?, String>> { it.id to it.name }, activeId,
+            onSelect = { key -> picker = null; if (key != null) onPlaylist(key) },
+            onDismiss = { picker = null },
+            footer = { PillButton(stringResource(R.string.add_playlist), Icons.Rounded.Add, false, { picker = null; onAddPlaylist() }) },
+        )
+        "category" -> PickerDialog(
+            stringResource(R.string.category), Icons.Rounded.GridView,
+            listOf<Pair<String?, String>>(null to all) + categories.map { it to it }, f.category,
+            onSelect = { picker = null; onChange(f.copy(category = it)) }, onDismiss = { picker = null },
+        )
     }
 }
 
